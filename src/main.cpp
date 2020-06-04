@@ -3,14 +3,13 @@
 #include "dot-display.hpp"
 
 #define FIRMWARE_NAME "dot-display"
-#define FIRMWARE_VERSION "0.0.2"
+#define FIRMWARE_VERSION "0.0.5"
 
 DotDisplay the_display(/* clock*/ D5, /*data*/ D7, /*cs=*/D8);
 HomieNode textNode("text", "string");
 
 void onHomieEvent(const HomieEvent &event)
 {
-  static int phase = 0;
   switch (event.type)
   {
   case HomieEventType::STANDALONE_MODE:
@@ -37,16 +36,12 @@ void onHomieEvent(const HomieEvent &event)
   case HomieEventType::OTA_SUCCESSFUL:
     the_display.drawSmallText("restarting");
     break;
+  case HomieEventType::OTA_FAILED:
+    the_display.drawSmallText("failed");
+    break;
+
   case HomieEventType::OTA_PROGRESS:
-    if (phase % 1)
-    {
-      the_display.drawSmallText(" \\ \\");
-    }
-    else
-    {
-      the_display.drawSmallText(" / /");
-    }
-    phase += 1;
+    the_display.uploadProgress();
     break;
   default:
     break;
@@ -68,7 +63,7 @@ bool setIntensityHandler(const HomieRange &range, const String &value)
   if (value.toInt() > 255)
     return true;
   new_intensity = value.toInt();
-  
+
   textNode.setProperty("intensity").send(String(new_intensity));
   the_display.setIntensity(new_intensity);
   return true;
@@ -91,22 +86,21 @@ void setup()
   Serial << endl
          << endl;
 
-  Homie.getLogger() << "wifiReset: start" << endl;
+  // Homie.getLogger() << "wifiReset: start" << endl;
 
   //WiFi.disconnect();
-  WiFi.persistent(false);
-  WiFi.mode(WIFI_OFF);
-  Homie.getLogger() << "wifiReset: done" << endl;
+  //WiFi.persistent(false);
+  //WiFi.mode(WIFI_OFF);
+  //Homie.getLogger() << "wifiReset: done" << endl;
 
   // Homie.disableLogging();
 
+  the_display.drawSmallText("booting");
   Homie_setFirmware(FIRMWARE_NAME, FIRMWARE_VERSION);
   textNode.advertise("intensity").settable(setIntensityHandler);
   textNode.advertise("text").settable(setTextHandler);
   Homie.onEvent(onHomieEvent);
   Homie.setup();
-
-  the_display.drawSmallText("booting");
 }
 
 void loop()
